@@ -490,7 +490,8 @@ class DaeExporter:
                 # Warning, Blender 2.8 does not support anymore the "RENDER" argument to apply modifier
                 # with render state only...
 
-                armature_modifier.show_viewport = armature_modifier_state
+                if(armature_modifier): #check if armature exists before checking, fixes issue with including armature
+                    armature_modifier.show_viewport = armature_modifier_state
 
                 self.temp_meshes.add(v)
                 deps = bpy.context.evaluated_depsgraph_get()
