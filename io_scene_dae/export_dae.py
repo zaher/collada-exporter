@@ -1655,7 +1655,7 @@ class DaeExporter:
         self.writel(S_ASSET, 1, "<modified>{}</modified>".format(
             time.strftime("%Y-%m-%dT%H:%M:%SZ")))
         self.writel(S_ASSET, 1, "<unit meter=\"1.0\" name=\"meter\"/>")
-        self.writel(S_ASSET, 1, "<up_axis>Z_UP</up_axis>")
+        self.writel(S_ASSET, 1, "<up_axis>{}</up_axis>".format(self.config["up_axis"]))
         self.writel(S_ASSET, 0, "</asset>")
 
     def export_animation_transform_channel(self, target, keys, matrices=True):
