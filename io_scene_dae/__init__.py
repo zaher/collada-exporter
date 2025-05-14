@@ -46,9 +46,9 @@ bl_info = {
     "category": "Import-Export"}
 
 if "bpy" in locals():
-    import imp
+    import importlib
     if "export_dae" in locals():
-        imp.reload(export_dae)  # noqa
+        importlib.reload(export_dae)  # noqa
 
 class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     """Selection to DAE"""
