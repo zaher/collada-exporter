@@ -14,6 +14,15 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ##### END GPL LICENSE BLOCK #####
+#
+#   Adding compatibility export for OpenSim and SecondLife by Zaher
+#
+#   Based on:
+#
+#   https://github.com/godotengine/collada-exporter
+#   https://github.com/hkunz/collada-exporter
+#
+# #####
 
 import bpy
 from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
@@ -22,12 +31,13 @@ from bpy_extras.io_utils import ExportHelper
 bl_info = {
     "name": "Better Collada Exporter",
     "author": "Juan Linietsky, artell, Panthavma, Harry McKenzie",
-    "version": (1, 10, 13),
-    "blender": (3, 0, 1),
+    "version": (1, 12, 1),
+    "blender": (4, 5, 0),
     "api": 38691,
     "location": "File > Import-Export",
     "description": ("Export DAE Scenes. This plugin actually works better! "
-                    "Fixed Blender 4.0+ compatibility by removing deprecated method calls. "
+                    "Fixed Blender 4.0+ compatibility by removing deprecated method calls."
+                    "Fixed OpenSIM/SecondLife compatibility."
                     "Otherwise contact the Godot Engine community."),
     "warning": "",
     "wiki_url": ("https://godotengine.org"),
@@ -65,6 +75,11 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE"},
         )
 
+    use_generate_ids : BoolProperty(
+        name="Generate IDs",
+        description="Generate object, bones and nodes id to new id, do not use Blender names",
+        default=False,
+        )
     use_export_selected : BoolProperty(
         name="Selected Objects",
         description="Export only selected objects (and visible in active "
@@ -138,7 +153,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         description="Export shape keys for selected objects.",
         default=False,
         )
-		
+
     anim_optimize_precision : FloatProperty(
         name="Precision",
         description=("Tolerence for comparing double keyframes "
@@ -177,22 +192,22 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
 def menu_func(self, context):
     self.layout.operator(CE_OT_export_dae.bl_idname, text="Better Collada (.dae)")
 
-	
+
 #classes = (CE_OT_export_dae)
 
-def register():	 
+def register():
 	from bpy.utils import register_class
 
 	register_class(CE_OT_export_dae)
-	
+
 	#bpy.types.INFO_MT_file_export.append(menu_func)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func)
 
-def unregister():	 
+def unregister():
 	from bpy.utils import unregister_class
-	
+
 	unregister_class(CE_OT_export_dae)
-	
+
 	#bpy.types.INFO_MT_file_export.append(menu_func)
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 

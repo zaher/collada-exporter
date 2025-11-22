@@ -101,9 +101,18 @@ class DaeExporter:
             return "z{}".format(d)
         return d
 
-    def new_id(self, t):
-        self.last_id += 1
-        return "id-{}-{}".format(t, self.last_id)
+    ## use no_suffex used only when use_generate_ids not used
+    def new_id(self, node = None, suffix = "", parent = None, no_suffex = False):
+        if node is None or not hasattr(node, 'name') or self.config["use_generate_ids"]:
+            self.last_id += 1
+            return "id-{}-{}".format(suffix, self.last_id)
+        else:
+            name = node.name
+            if suffix and not no_suffex:
+                name = name + "-" + suffix
+            if parent is not None:
+                name = parent.name + "_" + name
+            return name
 
     class Vertex:
 
@@ -204,7 +213,7 @@ class DaeExporter:
                     "images", os.path.basename(image.filepath)).replace("\\", "/")
                 image.filepath = img_tmp_path
 
-        
+
         else:
             try:
                 imgpath = os.path.relpath(
@@ -212,8 +221,8 @@ class DaeExporter:
             except:
                 # TODO: Review, not sure why it fails
                 pass
-        
-        imgid = self.new_id("image")
+
+        imgid = self.new_id(image, "image")
 
         print("FOR: {}".format(imgpath))
 
@@ -229,24 +238,24 @@ class DaeExporter:
         if material_id:
             return material_id
 
-        fxid = self.new_id("fx")
+        fxid = self.new_id(material, "fx")
         self.writel(S_FX, 1, "<effect id=\"{}\" name=\"{}-fx\">".format(
             fxid, material.name))
         self.writel(S_FX, 2, "<profile_COMMON>")
 
-        # Find and fetch the textures and create sources    
+        # Find and fetch the textures and create sources
         sampler_table = {}
         diffuse_tex = None
         specular_tex = None
         emission_tex = None
         normal_tex = None
-        
+
         #TODO, use Blender 2.8 principled shader and connected maps
         mat_wrap = node_shader_utils.PrincipledBSDFWrapper(material) if material else None
-        
+
         if mat_wrap:
             textures_keys = ["base_color_texture", "specular_texture", "normalmap_texture"]
-            
+
             for i, tkey in enumerate(textures_keys):
                 tex = getattr(mat_wrap, tkey, None)
                 if tex == None:
@@ -256,25 +265,25 @@ class DaeExporter:
 
                 # Image
                 imgid = self.export_image(tex.image)
-                
+
                 # Surface
-                surface_sid = self.new_id("fx_surf")
+                surface_sid = self.new_id(tex, "fx_surf")
                 self.writel(S_FX, 3, "<newparam sid=\"{}\">".format(surface_sid))
                 self.writel(S_FX, 4, "<surface type=\"2D\">")
                 self.writel(S_FX, 5, "<init_from>{}</init_from>".format(imgid))
                 self.writel(S_FX, 5, "<format>A8R8G8B8</format>")
                 self.writel(S_FX, 4, "</surface>")
                 self.writel(S_FX, 3, "</newparam>")
-                
+
                 # Sampler
-                sampler_sid = self.new_id("fx_sampler")
+                sampler_sid = self.new_id(tex, "fx_sampler")
                 self.writel(S_FX, 3, "<newparam sid=\"{}\">".format(sampler_sid))
                 self.writel(S_FX, 4, "<sampler2D>")
                 self.writel(S_FX, 5, "<source>{}</source>".format(surface_sid))
                 self.writel(S_FX, 4, "</sampler2D>")
                 self.writel(S_FX, 3, "</newparam>")
                 sampler_table[i] = sampler_sid
-                
+
                 if tkey == "base_color_texture" and diffuse_tex is None:
                     diffuse_tex = sampler_sid
                 if tkey == "specular_texture" and specular_tex is None:
@@ -286,7 +295,7 @@ class DaeExporter:
                 """
                 if tkey == "normalmap_texture" and normal_tex is None:
                     normal_tex = sampler_sid
-        
+
         """
         for i in range(len(material.texture_slots)):
             ts = material.texture_slots[i]
@@ -332,7 +341,7 @@ class DaeExporter:
             if ts.use_map_normal and normal_tex is None:
                 normal_tex = sampler_sid
         """
-        
+
         self.writel(S_FX, 3, "<technique sid=\"common\">")
         shtype = "blinn"
         self.writel(S_FX, 4, "<{}>".format(shtype))
@@ -343,9 +352,9 @@ class DaeExporter:
                 S_FX, 6, "<texture texture=\"{}\" texcoord=\"CHANNEL1\"/>"
                 .format(emission_tex))
         else:
-            # TODO: More accurate coloring, if possible     
+            # TODO: More accurate coloring, if possible
             self.writel(S_FX, 6, "<color>{}</color>".format(
-                numarr_alpha(material.diffuse_color, 1.0)))#material.emit is removed in Blender 2.8             
+                numarr_alpha(material.diffuse_color, 1.0)))#material.emit is removed in Blender 2.8
         self.writel(S_FX, 5, "</emission>")
 
         self.writel(S_FX, 5, "<ambient>")
@@ -391,7 +400,7 @@ class DaeExporter:
             self.writel(S_FX, 6, "<float>{}</float>".format(material.alpha))
             self.writel(S_FX, 5, "</transparency>")
         """
-        
+
         self.writel(S_FX, 5, "<index_of_refraction>")
         self.writel(S_FX, 6, "<float>{}</float>".format(1.2))#material.specular_ior is removed too
         self.writel(S_FX, 5, "</index_of_refraction>")
@@ -413,7 +422,7 @@ class DaeExporter:
         self.writel(S_FX, 6, "<double_sided>{}</double_sided>".format(
             int(double_sided_hint)))
         self.writel(S_FX, 5, "</technique>")
-    
+
         """
         if (material.use_shadeless):#material.use_shadeless is removed too
             self.writel(S_FX, 5, "<technique profile=\"GODOT\">")
@@ -427,7 +436,7 @@ class DaeExporter:
         self.writel(S_FX, 1, "</effect>")
 
         # Material (if active)
-        matid = self.new_id("material")
+        matid = self.new_id(material, "material")
         self.writel(S_MATS, 1, "<material id=\"{}\" name=\"{}\">".format(
             matid, material.name))
         self.writel(S_MATS, 2, "<instance_effect url=\"#{}\"/>".format(fxid))
@@ -439,7 +448,7 @@ class DaeExporter:
     def export_mesh(self, node, armature=None, skeyindex=-1, skel_source=None,
                     custom_name=None):
         mesh = node.data
-        
+
         if (node.data in self.mesh_cache):
             return self.mesh_cache[mesh]
 
@@ -453,7 +462,7 @@ class DaeExporter:
                 values += [shape.value]
                 shape.value = 0
 
-            mid = self.new_id("morph")
+            mid = self.new_id(mesh, "morph")
 
             for k in range(0, len(mesh.shape_keys.key_blocks)):
                 shape = node.data.shape_keys.key_blocks[k]
@@ -462,35 +471,35 @@ class DaeExporter:
                 shape.value = 1.0
                 mesh.update()
                 p = node.data
-                
-                armature_modifier = None            
+
+                armature_modifier = None
                 armature_modifier_state = None
-                
+
                 if(self.config["use_exclude_armature_modifier"]):
                     armature_modifiers = [i for i in node.modifiers if i.type == "ARMATURE"]
                     armature_modifier = armature_modifiers[0]#node.modifiers.get("Armature")
 
-                if(armature_modifier):  
+                if(armature_modifier):
                     # the armature modifier must be disabled too
                     armature_modifier_state = armature_modifier.show_viewport
-                    armature_modifier.show_viewport = False         
-                
+                    armature_modifier.show_viewport = False
+
                 print(node)
-                v = node.to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get()) 
+                v = node.to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
                 print(v)
                 # Warning, Blender 2.8 does not support anymore the "RENDER" argument to apply modifier
                 # with render state only...
-                
+
                 armature_modifier.show_viewport = armature_modifier_state
-                
+
                 self.temp_meshes.add(v)
                 deps = bpy.context.evaluated_depsgraph_get()
                 evaluated_node = node.evaluated_get(deps)
                 evaluated_node.data = v
                 evaluated_node.data.update()
-                if (armature and k == 0):                   
+                if (armature and k == 0):
                     md = self.export_mesh(evaluated_node, armature, k, mid, shape.name)
-                else:                   
+                else:
                     md = self.export_mesh(evaluated_node, None, k, None, shape.name)
 
                 node.data = p
@@ -593,18 +602,18 @@ class DaeExporter:
         armature_modifier = None
         armature_poses = None
         armature_modifier_state = None
-        
+
         if(self.config["use_exclude_armature_modifier"]):
             armature_modifiers = [i for i in node.modifiers if i.type == "ARMATURE"]
             if len(armature_modifiers) > 0:
-                print(node.name)            
+                print(node.name)
                 armature_modifier = armature_modifiers[0]#node.modifiers.get("Armature")
 
         # Set armature in rest pose
-        if(armature_modifier):  
+        if(armature_modifier):
             # the armature modifier must be disabled too
             armature_modifier_state = armature_modifier.show_viewport
-            armature_modifier.show_viewport = False         
+            armature_modifier.show_viewport = False
             #doing this per object is inefficient, should be improved, maybe?
             armature_poses = [arm.pose_position for arm in bpy.data.armatures]
             for arm in bpy.data.armatures:
@@ -622,16 +631,16 @@ class DaeExporter:
             evaluated_node = node.evaluated_get(depsgraph)
             mesh = evaluated_node.to_mesh(preserve_all_data_layers=False, depsgraph=depsgraph)
         else:
-            mesh = node.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph) 
+            mesh = node.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
         # 2.8 update: warning, Blender does not support anymore the "RENDER" argument to apply modifier
         # with render state, only current state
-        
+
         # Restore armature and modifier state
-        if(armature_modifier):          
-            armature_modifier.show_viewport = armature_modifier_state           
+        if(armature_modifier):
+            armature_modifier.show_viewport = armature_modifier_state
             for i,arm in enumerate(bpy.data.armatures):
                 arm.pose_position = armature_poses[i]
-                
+
 
 
         self.temp_meshes.add(mesh)
@@ -690,8 +699,8 @@ class DaeExporter:
                     mat = mesh.materials[f.material_index]
                 except:
                     mat = None
-                
-                if (mat is not None):               
+
+                if (mat is not None):
                     materials[f.material_index] = self.export_material(
                         mat, True)#True = deprecated mesh.show_double_sided value, which is removed from Blender 2.8
                 else:
@@ -765,7 +774,7 @@ class DaeExporter:
             if (len(vi) > 2):  # Only triangles and above
                 indices.append(vi)
 
-        meshid = self.new_id("mesh")
+        meshid = self.new_id(mesh, "mesh")
         self.writel(
             S_GEOM, 1, "<geometry id=\"{}\" name=\"{}\">".format(
                 meshid, name_to_use))
@@ -925,7 +934,7 @@ class DaeExporter:
             mat = materials[m]
 
             if (mat is not None):
-                matref = self.new_id("trimat")
+                matref = self.new_id(mat, "trimat")
                 self.writel(
                     S_GEOM, 3, "<{} count=\"{}\" material=\"{}\">".format(
                         prim_type,
@@ -989,7 +998,7 @@ class DaeExporter:
         # Export armature data (if armature exists)
         if (armature is not None and (
                 skel_source is not None or skeyindex == -1)):
-            contid = self.new_id("controller")
+            contid = self.new_id(armature, "controller")
 
             self.writel(S_SKIN, 1, "<controller id=\"{}\">".format(contid))
             if (skel_source is not None):
@@ -1143,8 +1152,8 @@ class DaeExporter:
                                         t.id.name in self.scene.objects):
                                     self.armature_for_morph[
                                         node] = self.scene.objects[t.id.name]
-        
-    
+
+
         meshdata = self.export_mesh(node, armature)
         close_controller = False
 
@@ -1182,7 +1191,7 @@ class DaeExporter:
         else:
             self.writel(S_NODES, il, "</instance_geometry>")
 
-    def export_armature_bone(self, bone, il, si):
+    def export_armature_bone(self, bone, armature, il, si):
         is_ctrl_bone = (
             self.config["use_exclude_ctrl_bones"] and
             (bone.name.startswith("ctrl") or bone.use_deform == False))
@@ -1192,10 +1201,14 @@ class DaeExporter:
             is_ctrl_bone = False
 
         if (is_ctrl_bone is False):
-            boneid = self.new_id("bone")
+            boneid = self.new_id(bone, "bone", parent = armature, no_suffex = True)
             boneidx = si["bone_count"]
             si["bone_count"] += 1
-            bonesid = "{}-{}".format(si["id"], boneidx)
+            if self.config["use_generate_ids"]:
+                bonesid = "{}-{}".format(si["id"], boneidx)
+            else:
+                bonesid = bone.name
+
             if (bone.name in self.used_bones):
                 if (self.config["use_anim_action_all"]):
                     self.operator.report(
@@ -1206,7 +1219,7 @@ class DaeExporter:
                 self.used_bones.append(bone.name)
 
             si["bone_index"][bone.name] = boneidx
-            si["bone_ids"][bone] = boneid
+            si["bone_ids"][bone] = bonesid
             si["bone_names"].append(bonesid)
             self.writel(
                 S_NODES, il, "<node id=\"{}\" sid=\"{}\" name=\"{}\" "
@@ -1231,7 +1244,7 @@ class DaeExporter:
                     strmtx(xform)))
 
         for c in bone.children:
-            self.export_armature_bone(c, il, si)
+            self.export_armature_bone(c, armature, il, si)
 
         if (is_ctrl_bone is False):
             il -= 1
@@ -1246,7 +1259,7 @@ class DaeExporter:
         armature = node.data
         self.skeleton_info[node] = {
             "bone_count": 0,
-            "id": self.new_id("skelbones"),
+            "id": self.new_id(node, "skelbones"),
             "name": node.name,
             "bone_index": {},
             "bone_ids": {},
@@ -1259,7 +1272,7 @@ class DaeExporter:
         for b in armature.bones:
             if (b.parent is not None):
                 continue
-            self.export_armature_bone(b, il, self.skeleton_info[node])
+            self.export_armature_bone(b, armature, il, self.skeleton_info[node])
 
         if (node.pose):
             for b in node.pose.bones:
@@ -1272,7 +1285,7 @@ class DaeExporter:
             return
 
         camera = node.data
-        camid = self.new_id("camera")
+        camid = self.new_id(camera, "camera")
         self.writel(S_CAMS, 1, "<camera id=\"{}\" name=\"{}\">".format(
             camid, camera.name))
         self.writel(S_CAMS, 2, "<optics>")
@@ -1312,7 +1325,7 @@ class DaeExporter:
             return
 
         light = node.data
-        lightid = self.new_id("light")
+        lightid = self.new_id(light, "light")
         self.writel(S_LAMPS, 1, "<light id=\"{}\" name=\"{}\">".format(
                 lightid, light.name))
         self.writel(S_LAMPS, 3, "<technique_common>")
@@ -1370,7 +1383,7 @@ class DaeExporter:
         self.writel(S_NODES, 4, "</extra>")
 
     def export_curve(self, curve):
-        splineid = self.new_id("spline")
+        splineid = self.new_id(self.spline, "spline")
 
         self.writel(
             S_GEOM, 1, "<geometry id=\"{}\" name=\"{}\">".format(
@@ -1546,7 +1559,7 @@ class DaeExporter:
             curveid))
         self.writel(S_NODES, il, "</instance_geometry>")
 
-    def export_node(self, node, il):        
+    def export_node(self, node, il):
         if (node not in self.valid_nodes):
             return
 
@@ -1598,7 +1611,7 @@ class DaeExporter:
                 if col.hide_viewport == True:
                     valid = False
                     break
-                    
+
             if (not valid):
                 return False
 
@@ -1609,9 +1622,7 @@ class DaeExporter:
 
     def export_scene(self):
         self.writel(S_NODES, 0, "<library_visual_scenes>")
-        self.writel(
-            S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(
-                self.scene_name))
+        self.writel(S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(self.scene_name))
 
         for obj in self.scene.objects:
             if (obj in self.valid_nodes):
@@ -1624,7 +1635,7 @@ class DaeExporter:
                     n = n.parent
 
         for obj in sorted(self.scene.objects, key=lambda x: x.name):
-            if (obj in self.valid_nodes and obj.parent is None):                
+            if (obj in self.valid_nodes and obj.parent is None):
                 self.export_node(obj, 2)
 
         self.writel(S_NODES, 1, "</visual_scene>")
@@ -1649,7 +1660,7 @@ class DaeExporter:
 
     def export_animation_transform_channel(self, target, keys, matrices=True):
         frame_total = len(keys)
-        anim_id = self.new_id("anim")
+        anim_id = self.new_id(target, "anim") ##BUG not sure target is the animation
         self.writel(S_ANIM, 1, "<animation id=\"{}\">".format(anim_id))
         source_frames = ""
         source_transforms = ""
@@ -1903,13 +1914,13 @@ class DaeExporter:
             self.writel(S_ANIM_CLIPS, 0, "<library_animation_clips>")
 
             for x in bpy.data.actions[:]:
-                
+
                 if x.users == 0 or x in self.action_constraints:
                     continue
                 if (self.config["use_anim_skip_noexp"] and
                         x.name.endswith("-noexp")):
                     continue
-                           
+
                 bones = []
                 # Find bones used
                 for p in x.fcurves:
@@ -2015,7 +2026,7 @@ class DaeExporter:
         f.write(bytes("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n", "UTF-8"))
         f.write(bytes(
             "<COLLADA xmlns=\"http://www.collada.org/2005/11/COLLADASchema\" "
-            "version=\"1.4.1\">\n", "UTF-8"))
+            "version=\"1.4.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n", "UTF-8"))
 
         s = []
         for x in self.sections.keys():
@@ -2041,9 +2052,10 @@ class DaeExporter:
 
     def __init__(self, path, kwargs, operator):
         self.operator = operator
+        self.config = kwargs
         self.scene = bpy.context.scene
         self.last_id = 0
-        self.scene_name = self.new_id("scene")
+        self.scene_name = self.new_id(self.scene, "scene", no_suffex = True)
         self.sections = {}
         self.path = path
         self.mesh_cache = {}
@@ -2052,7 +2064,6 @@ class DaeExporter:
         self.material_cache = {}
         self.image_cache = {}
         self.skeleton_info = {}
-        self.config = kwargs
         self.valid_nodes = []
         self.armature_for_morph = {}
         self.used_bones = []
@@ -2065,7 +2076,7 @@ class DaeExporter:
 
     def __exit__(self, *exc):
         pass
-        """    
+        """
         for mesh in self.temp_meshes:
             bpy.data.meshes.remove(mesh)
         """
