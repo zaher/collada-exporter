@@ -50,7 +50,6 @@ if "bpy" in locals():
     if "export_dae" in locals():
         imp.reload(export_dae)  # noqa
 
-
 class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     """Selection to DAE"""
     bl_idname = "export_scene.dae"
@@ -60,19 +59,23 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     filename_ext = ".dae"
     filter_glob : StringProperty(default="*.dae", options={"HIDDEN"})
 
+    object_types_list = [
+            ("MESH", "Mesh", ""),
+            ("ARMATURE", "Armature", ""),
+            ("CURVE", "Curve", ""),
+            ("EMPTY", "Empty", ""),
+            ("CAMERA", "Camera", ""),
+            ("LAMP", "Lamp", "")
+        ]
+
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling
     object_types : EnumProperty(
         name="Object Types",
         options={"ENUM_FLAG"},
-        items=(("EMPTY", "Empty", ""),
-               ("CAMERA", "Camera", ""),
-               ("LAMP", "Lamp", ""),
-               ("ARMATURE", "Armature", ""),
-               ("MESH", "Mesh", ""),
-               ("CURVE", "Curve", ""),
-               ),
-        default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE"},
+
+        items=object_types_list,
+            default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE"},
         )
 
     use_generate_ids : BoolProperty(
@@ -187,6 +190,81 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
 
         from . import export_dae
         return export_dae.save(self, context, **keywords)
+
+    def draw(self, context):
+        main = self.layout
+
+        ###### Objects #######
+
+        header, panel = main.panel("objects")
+        header.label(text="Object Types")
+        if panel:
+            column = panel.column(align=True)
+            #for index, item in enumerate(self.bl_rna.properties["object_types"].enum_items):
+            for item in self.object_types_list:
+                column.prop_enum(self, "object_types", item[0])
+
+        ###### Options #######
+
+        header, panel = main.panel("options")
+        header.label(text="Options")
+        if panel:
+            column = panel.column(align=False)
+            column.prop(self, "use_generate_ids", toggle=False)
+            column.prop(self, "use_export_selected", toggle=False)
+
+        ###### Mesh #######
+
+        header, panel = main.panel("geometry")
+        header.label(text="Geometry")
+
+        if panel:
+            column = panel.column(align=True)
+
+            column.prop(self, "use_mesh_modifiers", toggle=False)
+            column.prop(self, "use_tangent_arrays", toggle=False)
+            column.prop(self, "use_triangles", toggle=False)
+
+        ###### Armature #######
+
+        header, panel = main.panel("armature")
+        header.label(text="Armature")
+
+        if panel:
+            column = panel.column(align=True)
+
+            column.prop(self, "use_exclude_armature_modifier", toggle=False)
+            column.prop(self, "use_copy_images", toggle=False)
+            column.prop(self, "use_active_layers", toggle=False)
+            column.prop(self, "use_exclude_ctrl_bones", toggle=False)
+
+        ###### Animation #######
+
+        header, panel = main.panel("animation")
+        header.label(text="Animation")
+
+        if panel:
+            column = panel.column(align=True)
+
+            column.prop(self, "use_anim", toggle=False)
+            column.prop(self, "use_anim_action_all", toggle=False)
+            column.prop(self, "use_anim_skip_noexp", toggle=False)
+            column.prop(self, "use_anim_optimize", toggle=False)
+            row = column.row(align = True)
+            row.label(text = "Precision")
+            row.prop(self, "anim_optimize_precision", text = "")
+
+        ###### Extra #######
+
+        header, panel = main.panel("Extra")
+        header.label(text="Extra")
+
+        if panel:
+            column = panel.column(align=True)
+
+            column.prop(self, "use_metadata", toggle=False)
+            column.prop(self, "use_shape_key_export", toggle=False)
+
 
 
 def menu_func(self, context):
