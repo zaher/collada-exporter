@@ -1785,6 +1785,14 @@ class DaeExporter:
         xform_cache = {}
         blend_cache = {}
 
+        #TODO https://github.com/pouleyKetchoupp/collada-exporter/commit/5b0e18df1de676865795f17705a8442ad45480de
+        #* fix for wrong export of first frame of animation clip due to lag in drivers update
+        #
+        # Blender updates drivers with one frame delay, causing the first frame to be wrong in the exported clip
+        # Jumping to the two first frames before exporting the clip fixes this issue
+        #self.scene.frame_set(start)
+        #self.scene.frame_set(start + 1)
+
         # Change frames first, export objects last, boosts performance
         for t in range(start, end + 1):
             self.scene.frame_set(t)
