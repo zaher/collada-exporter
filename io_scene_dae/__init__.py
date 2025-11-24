@@ -25,14 +25,27 @@
 # #####
 
 import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
+
+from bpy_extras.io_utils import (
+    ImportHelper,
+    ExportHelper,
+    orientation_helper,
+    axis_conversion,
+)
+
+from bpy.props import (
+        StringProperty,
+        BoolProperty,
+        FloatProperty,
+        EnumProperty,
+)
 
 from bpy_extras.io_utils import ExportHelper
 bl_info = {
     "name": "Better Collada Exporter",
     "author": "Juan Linietsky, artell, Panthavma, Harry McKenzie",
     "version": (1, 12, 1),
-    "blender": (4, 5, 0),
+    "blender": (4, 0, 0),
     "api": 38691,
     "location": "File > Import-Export",
     "description": ("Export DAE Scenes. This plugin actually works better! "
@@ -50,6 +63,7 @@ if "bpy" in locals():
     if "export_dae" in locals():
         importlib.reload(export_dae)  # noqa
 
+@orientation_helper(axis_forward='-Z', axis_up='Y')
 class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     """Selection to DAE"""
     bl_idname = "export_scene.dae"
@@ -78,7 +92,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE"},
         )
 
-    up_axis: EnumProperty(
+    """axis_up: EnumProperty(
         name="Up Axis",
         description="The up axis of the file",
         items=(('X_UP', "X UP", "X Axis Up"),
@@ -86,6 +100,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                ('Z_UP', "Z UP", "Z Axis Up")),
         default='Z_UP',
         )
+    """
 
     use_generate_ids : BoolProperty(
         name="Generate IDs",
@@ -191,11 +206,18 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         if not self.filepath:
             raise Exception("filepath not set")
 
-        keywords = self.as_keywords(ignore=("axis_forward",
-                                            "axis_up",
+        keywords = self.as_keywords(ignore=(
                                             "global_scale",
                                             "filter_glob"
                                             ))
+
+        # global_matrix: from current Blender coordinates system to output coordinates system
+        global_matrix = axis_conversion(
+            from_forward=self.axis_forward,
+            from_up=self.axis_up,
+        ).to_4x4().inverted()
+
+        keywords["global_matrix"] = global_matrix
 
         from . import export_dae
         return export_dae.save(self, context, **keywords)
@@ -223,7 +245,8 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
-            column.prop(self, "up_axis")
+            column.prop(self, "axis_forward")
+            column.prop(self, "axis_up")
 
         ###### Mesh #######
 

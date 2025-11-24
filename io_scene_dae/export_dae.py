@@ -67,6 +67,27 @@ def strmtx(mtx):
     s = " {} ".format(s)
     return s
 
+#TODO https://github.com/set-killer/collada-exporter/commit/faf530cae9bd1cd986d639e1c58dd683481a8245
+#
+def strmtx2(mtx):
+    s = ""
+    s += "{0:.6f}, ".format(mtx[0][0])
+    s += "{0:.6f}, ".format(mtx[0][1])
+    s += "{0:.6f}, ".format(mtx[0][2])
+
+    s += "{0:.6f}, ".format(mtx[2][0])
+    s += "{0:.6f}, ".format(mtx[2][1])
+    s += "{0:.6f}, ".format(mtx[2][2])
+
+    s += "{0:.6f}, ".format(-mtx[1][0])
+    s += "{0:.6f}, ".format(-mtx[1][1])
+    s += "{0:.6f}, ".format(-mtx[1][2])
+
+    s += "{0:.6f}, ".format(mtx[0][3])
+    s += "{0:.6f}, ".format(mtx[2][3])
+    s += "{0:.6f} ".format(-mtx[1][3])
+
+    return s
 
 def numarr(a, mult=1.0):
     s = " "
