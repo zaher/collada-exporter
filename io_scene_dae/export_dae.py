@@ -162,7 +162,7 @@ class DaeExporter:
             self.weights = []
 
     def writel(self, section, indent, text):
-        if (not (section in self.sections)):
+        if (section not in self.sections):
             self.sections[section] = []
         line = "{}{}".format(indent * "\t", text)
         self.sections[section].append(line)
@@ -258,9 +258,9 @@ class DaeExporter:
 
             for i, tkey in enumerate(textures_keys):
                 tex = getattr(mat_wrap, tkey, None)
-                if tex == None:
+                if tex is None:
                     continue
-                if tex.image == None:
+                if tex.image is None:
                     continue
 
                 # Image
@@ -691,7 +691,7 @@ class DaeExporter:
         for fi in range(len(mesh.polygons)):
             f = mesh.polygons[fi]
 
-            if not (f.material_index in surface_indices):
+            if (f.material_index not in surface_indices):
                 surface_indices[f.material_index] = []
 
                 try:
@@ -1194,7 +1194,7 @@ class DaeExporter:
     def export_armature_bone(self, bone, armature, il, si):
         is_ctrl_bone = (
             self.config["use_exclude_ctrl_bones"] and
-            (bone.name.startswith("ctrl") or bone.use_deform == False))
+            (bone.name.startswith("ctrl") or not bone.use_deform))
         if (bone.parent is None and is_ctrl_bone is True):
             self.operator.report(
                 {"WARNING"}, "Root bone cannot be a control bone:"+bone.name)
@@ -1608,7 +1608,7 @@ class DaeExporter:
             """
             # use collections instead of layers
             for col in node.users_collection:
-                if col.hide_viewport == True:
+                if col.hide_viewport:
                     valid = False
                     break
 
@@ -1791,7 +1791,7 @@ class DaeExporter:
             for node in self.scene.objects:
                 if (node not in self.valid_nodes):
                     continue
-                if (allowed is not None and not (node in allowed)):
+                if (allowed is not None and (node not in allowed)):
                     if (node.type == "MESH" and node.data is not None and
                         (node in self.armature_for_morph) and (
                             self.armature_for_morph[node] in allowed)):
@@ -1809,7 +1809,7 @@ class DaeExporter:
                             continue
 
                         name = "{}-morph-weights({})".format(target, i - 1)
-                        if (not (name in blend_cache)):
+                        if (name not in blend_cache):
                             blend_cache[name] = []
 
                         blend_cache[name].append(
@@ -1826,7 +1826,7 @@ class DaeExporter:
                     # If the node has constraints, or animation data, then
                     # export a sampled animation track
                     name = self.validate_id(node.name)
-                    if (not (name in xform_cache)):
+                    if (name not in xform_cache):
                         xform_cache[name] = []
 
                     mtx = node.matrix_world.copy()
@@ -1839,13 +1839,13 @@ class DaeExporter:
                     # All bones exported for now
                     for bone in node.data.bones:
                         if((bone.name.startswith("ctrl") or
-                            bone.use_deform == False) and
+                            not bone.use_deform) and
                                 self.config["use_exclude_ctrl_bones"]):
                             continue
 
                         bone_name = self.skeleton_info[node]["bone_ids"][bone]
 
-                        if (not (bone_name in xform_cache)):
+                        if (bone_name not in xform_cache):
                             xform_cache[bone_name] = []
 
                         posebone = node.pose.bones[bone.name]
@@ -1857,8 +1857,7 @@ class DaeExporter:
                                 current_parent_posebone = bone.parent
                                 while ((current_parent_posebone.name
                                         .startswith("ctrl") or
-                                        current_parent_posebone.use_deform
-                                        == False) and
+                                        not current_parent_posebone.use_deform) and
                                         current_parent_posebone.parent):
                                     current_parent_posebone = (
                                         current_parent_posebone.parent)
