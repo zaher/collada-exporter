@@ -56,17 +56,17 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     bl_label = "Export DAE"
     bl_options = {"PRESET"}
 
-    filename_ext = ".dae"
-    filter_glob : StringProperty(default="*.dae", options={"HIDDEN"})
-
-    object_types_list = [
+    object_types_list = (
             ("MESH", "Mesh", ""),
             ("ARMATURE", "Armature", ""),
             ("CURVE", "Curve", ""),
             ("EMPTY", "Empty", ""),
             ("CAMERA", "Camera", ""),
             ("LAMP", "Lamp", "")
-        ]
+    )
+
+    filename_ext = ".dae"
+    filter_glob : StringProperty(default="*.dae", options={"HIDDEN"})
 
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling
@@ -176,6 +176,8 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     def check_extension(self):
         return True
 
+    ## Execute ##
+
     def execute(self, context):
         if not self.filepath:
             raise Exception("filepath not set")
@@ -183,13 +185,13 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         keywords = self.as_keywords(ignore=("axis_forward",
                                             "axis_up",
                                             "global_scale",
-                                            "check_existing",
-                                            "filter_glob",
-                                            "xna_validate",
+                                            "filter_glob"
                                             ))
 
         from . import export_dae
         return export_dae.save(self, context, **keywords)
+
+    ## Draw ##
 
     def draw(self, context):
         main = self.layout
