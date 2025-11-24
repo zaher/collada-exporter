@@ -81,9 +81,9 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     up_axis: EnumProperty(
         name="Up Axis",
         description="The up axis of the file",
-        items=(('X_UP', "X_UP", "X Axis Up"),
-               ('Y_UP', "Y_UP", "Y Axis Up"),
-               ('Z_UP', "Z_UP", "Z Axis Up")),
+        items=(('X_UP', "X UP", "X Axis Up"),
+               ('Y_UP', "Y UP", "Y Axis Up"),
+               ('Z_UP', "Z UP", "Z Axis Up")),
         default='Z_UP',
         )
 
@@ -223,6 +223,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
+            column.prop(self, "up_axis")
 
         ###### Mesh #######
 
