@@ -41,12 +41,12 @@ from bpy.props import (
 )
 
 from bpy_extras.io_utils import ExportHelper
+
 bl_info = {
     "name": "Better Collada Exporter",
-    "author": "Juan Linietsky, artell, Panthavma, Harry McKenzie",
+    "author": "Juan Linietsky, artell, Panthavma, Harry McKenzie, and many",
     "version": (1, 12, 1),
     "blender": (4, 0, 0),
-    "api": 38691,
     "location": "File > Import-Export",
     "description": ("Export DAE Scenes. This plugin actually works better! "
                     "Fixed Blender 4.0+ compatibility by removing deprecated method calls."
@@ -63,10 +63,10 @@ if "bpy" in locals():
     if "export_dae" in locals():
         importlib.reload(export_dae)  # noqa
 
-@orientation_helper(axis_forward='-Z', axis_up='Y')
+@orientation_helper(axis_forward='Y', axis_up='Z')
 class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     """Selection to DAE"""
-    bl_idname = "export_scene.dae"
+    bl_idname = "export_scene.better_dae"
     bl_label = "Export DAE"
     bl_options = {"PRESET"}
 
@@ -225,6 +225,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     ## Draw ##
 
     def draw(self, context):
+
         main = self.layout
 
         ###### Objects #######

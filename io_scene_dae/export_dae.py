@@ -24,6 +24,19 @@ This script is an exporter to the Khronos Collada file format.
 http://www.khronos.org/collada/
 """
 
+""" Ref:
+    https://blender.stackexchange.com/questions/166720/is-it-possible-to-export-just-the-keyframes-of-an-animated-model-into-collada-in
+    https://blender.stackexchange.com/questions/44637/how-can-i-manually-calculate-bpy-types-posebone-matrix-using-blenders-python-ap
+    https://blender.stackexchange.com/questions/287203/add-world-rotations-to-bones-local-rotations
+    https://blender.stackexchange.com/questions/308092/how-to-convert-from-y-up-coordinate-system-to-z-up-blender-system
+    https://blender.stackexchange.com/questions/15170/blender-python-exporting-bone-matrices-for-animation-relative-to-parent
+    https://blender.stackexchange.com/questions/1740/how-do-you-export-bones-relative-to-parent
+    https://blender.stackexchange.com/questions/3362/calculating-final-bone-posebone-matrices
+
+    https://github.com/de-senk/Pimp/blob/86ac20a2274c7c9bbe06e2d323e40339055cac38/blender_script/export_static_mesh.py#L63
+
+"""
+
 import os
 import time
 import math
@@ -50,7 +63,6 @@ S_ANIM = 12
 
 CMP_EPSILON = 0.0001
 
-
 def snap_tup(tup):
     ret = ()
     for x in tup:
@@ -58,6 +70,8 @@ def snap_tup(tup):
 
     return tup
 
+def strflt(x):
+    return '{0:.6f}'.format(x)
 
 def strmtx(mtx):
     s = ""
@@ -65,28 +79,6 @@ def strmtx(mtx):
         for y in range(4):
             s += "{} ".format(mtx[x][y])
     s = " {} ".format(s)
-    return s
-
-#TODO https://github.com/set-killer/collada-exporter/commit/faf530cae9bd1cd986d639e1c58dd683481a8245
-#
-def strmtx2(mtx):
-    s = ""
-    s += "{0:.6f}, ".format(mtx[0][0])
-    s += "{0:.6f}, ".format(mtx[0][1])
-    s += "{0:.6f}, ".format(mtx[0][2])
-
-    s += "{0:.6f}, ".format(mtx[2][0])
-    s += "{0:.6f}, ".format(mtx[2][1])
-    s += "{0:.6f}, ".format(mtx[2][2])
-
-    s += "{0:.6f}, ".format(-mtx[1][0])
-    s += "{0:.6f}, ".format(-mtx[1][1])
-    s += "{0:.6f}, ".format(-mtx[1][2])
-
-    s += "{0:.6f}, ".format(mtx[0][3])
-    s += "{0:.6f}, ".format(mtx[2][3])
-    s += "{0:.6f} ".format(-mtx[1][3])
-
     return s
 
 def numarr(a, mult=1.0):
@@ -1678,7 +1670,7 @@ class DaeExporter:
         self.writel(S_ASSET, 1, "<modified>{}</modified>".format(
             time.strftime("%Y-%m-%dT%H:%M:%SZ")))
         self.writel(S_ASSET, 1, "<unit meter=\"1.0\" name=\"meter\"/>")
-        self.writel(S_ASSET, 1, "<up_axis>{}</up_axis>".format(self.config["up_axis"]))
+        self.writel(S_ASSET, 1, "<up_axis>{}</up_axis>".format("Z_UP"))
         self.writel(S_ASSET, 0, "</asset>")
 
     def export_animation_transform_channel(self, target, keys, matrices=True):
@@ -1898,11 +1890,9 @@ class DaeExporter:
                                 parent_posebone = node.pose.bones[
                                     bone.parent.name]
                             parent_invisible = False
-
                             for i in range(3):
                                 if (parent_posebone.scale[i] == 0.0):
                                     parent_invisible = True
-
                             if (not parent_invisible):
                                 mtx = (
                                     parent_posebone.matrix
@@ -2078,7 +2068,7 @@ class DaeExporter:
                  "path", "mesh_cache", "curve_cache", "material_cache",
                  "image_cache", "skeleton_info", "config", "valid_nodes",
                  "armature_for_morph", "used_bones", "wrongvtx_report",
-                 "skeletons", "action_constraints", "temp_meshes")
+                 "skeletons", "action_constraints", "temp_meshes", "global_matrix")
 
     def __init__(self, path, kwargs, operator):
         self.operator = operator
@@ -2100,6 +2090,8 @@ class DaeExporter:
         self.wrongvtx_report = False
         self.skeletons = []
         self.action_constraints = []
+        # Store global_matrix for axis conversion
+        self.global_matrix = kwargs.get('global_matrix', None)
 
     def __enter__(self):
         return self
