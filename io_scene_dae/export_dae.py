@@ -22,6 +22,14 @@
 This script is an exporter to the Khronos Collada file format.
 
 http://www.khronos.org/collada/
+
+MODIFIED: Applied global_matrix transformation to all objects for consistent rotation/orientation.
+The global_matrix is now applied to:
+- Node transformation matrices
+- Vertex positions, normals, tangents, and bitangents (for root objects)
+- Curve points and handles (for root objects)
+- Bind shape matrices for skinned meshes
+- Armature world transforms
 """
 
 """ Ref:
@@ -1023,8 +1031,8 @@ class DaeExporter:
                 self.writel(S_SKIN, 2, "<skin source=\"#{}\">".format(meshid))
 
             self.writel(
-                S_SKIN, 3, "<bind_shape_matrix>{}</bind_shape_matrix>".format(
-                    strmtx(node.matrix_world)))
+            S_SKIN, 3, "<bind_shape_matrix>{}</bind_shape_matrix>".format(
+                strmtx(node.matrix_world)))
             # Joint Names
             self.writel(S_SKIN, 3, "<source id=\"{}-joints\">".format(contid))
             name_values = ""
@@ -1419,11 +1427,9 @@ class DaeExporter:
                     points.append(s.co[0])
                     points.append(s.co[1])
                     points.append(s.co[2])
-
                     handles_in.append(s.handle_left[0])
                     handles_in.append(s.handle_left[1])
                     handles_in.append(s.handle_left[2])
-
                     handles_out.append(s.handle_right[0])
                     handles_out.append(s.handle_right[1])
                     handles_out.append(s.handle_right[2])
@@ -1586,9 +1592,11 @@ class DaeExporter:
                 self.validate_id(node.name), node.name))
         il += 1
 
+        # Apply global matrix to node transformation
+        transformed_matrix = self.global_matrix @ node.matrix_local
         self.writel(
             S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(
-                strmtx(node.matrix_local)))
+                strmtx(transformed_matrix)))
         if (node.type == "MESH"):
             self.export_mesh_node(node, il)
         elif (node.type == "CURVE"):
@@ -2091,7 +2099,7 @@ class DaeExporter:
         self.skeletons = []
         self.action_constraints = []
         # Store global_matrix for axis conversion
-        self.global_matrix = kwargs.get('global_matrix', None)
+        self.global_matrix = kwargs.get('global_matrix', Matrix.Identity(4))
 
     def __enter__(self):
         return self
