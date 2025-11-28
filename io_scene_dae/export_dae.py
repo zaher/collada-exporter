@@ -16,7 +16,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # Script copyright (C) Juan Linietsky
-# Contact Info: juan@godotengine.org
+# concat Info: juan@godotengine.org
 
 """
 This script is an exporter to the Khronos Collada file format.
@@ -71,6 +71,12 @@ S_ANIM = 12
 
 CMP_EPSILON = 0.0001
 
+#LIMIT_PRECISION
+ROUND_FLOAT = 6
+
+def concat(s1, s2):
+    return (s1 + ' ' + s2) if s1 else s2
+
 def snap_tup(tup):
     ret = ()
     for x in tup:
@@ -79,41 +85,43 @@ def snap_tup(tup):
     return tup
 
 def strflt(x):
-    return '{0:.6f}'.format(x)
+    #return '{0:.6f}'.format(x)
+    return str(round(x, ROUND_FLOAT))
+
+def strvtr(v):
+    return strflt(v.x) + " " +strflt(v.y) + " " + strflt(v.z)
+
+def strxy(v):
+    return strflt(v.x) + " " +strflt(v.y)
 
 def strmtx(mtx):
     s = ""
     for x in range(4):
         for y in range(4):
-            s += "{} ".format(mtx[x][y])
-    s = " {} ".format(s)
+            s = concat(s, strflt(mtx[x][y]))
     return s
 
 def numarr(a, mult=1.0):
-    s = " "
+    s = ""
     for x in a:
-        s += " {}".format(x * mult)
-    s += " "
+        s = concat(s, strflt(x * mult))
     return s
 
 
 def numarr_alpha(a, mult=1.0):
-    s = " "
+    s = ""
     for x in a:
-        s += " {}".format(x * mult)
+        s = concat(s, strflt(x * mult))
     if len(a) == 3:
-        s += " 1.0"
-    s += " "
+        s += "1.0"
     return s
 
 
 def strarr(arr):
-    s = " "
+    s = ""
     for x in arr:
-        s += " {}".format(x)
-    s += " "
+        s = concat(s, strflt(x))
     return s
-
 
 class DaeExporter:
 
@@ -185,7 +193,7 @@ class DaeExporter:
     def writel(self, section, indent, text):
         if (section not in self.sections):
             self.sections[section] = []
-        line = "{}{}".format(indent * "\t", text)
+        line = "{}{}".format((indent * 2) * " ", text)
         self.sections[section].append(line)
 
     def purge_empty_nodes(self):
@@ -380,7 +388,7 @@ class DaeExporter:
 
         self.writel(S_FX, 5, "<ambient>")
         self.writel(S_FX, 6, "<color>{}</color>".format(
-            numarr_alpha((0.0,0.0,0.0), 1.0)))# self.scene.world.ambient_color and material.ambient are removed too
+            numarr_alpha((0.0, 0.0, 0.0), 1.0)))# self.scene.world.ambient_color and material.ambient are removed too
         self.writel(S_FX, 5, "</ambient>")
 
         self.writel(S_FX, 5, "<diffuse>")
@@ -411,7 +419,7 @@ class DaeExporter:
 
         self.writel(S_FX, 5, "<reflective>")
         self.writel(S_FX, 6, "<color>{}</color>".format(
-            numarr_alpha((0.5,0.5,0.5))))# material.mirror_color is removed too
+            numarr_alpha((0.5, 0.5, 0.5))))# material.mirror_color is removed too
         self.writel(S_FX, 5, "</reflective>")
 
         """
@@ -808,8 +816,7 @@ class DaeExporter:
         self.writel(S_GEOM, 3, "<source id=\"{}-positions\">".format(meshid))
         float_values = ""
         for v in vertices:
-            float_values += " {} {} {}".format(
-                v.vertex.x, v.vertex.y, v.vertex.z)
+            float_values = concat(float_values, strvtr(v.vertex))
         self.writel(
             S_GEOM, 4, "<float_array id=\"{}-positions-array\" "
             "count=\"{}\">{}</float_array>".format(
@@ -829,8 +836,8 @@ class DaeExporter:
         self.writel(S_GEOM, 3, "<source id=\"{}-normals\">".format(meshid))
         float_values = ""
         for v in vertices:
-            float_values += " {} {} {}".format(
-                v.normal.x, v.normal.y, v.normal.z)
+            float_values = concat(float_values, strvtr(v.normal))
+
         self.writel(
             S_GEOM, 4, "<float_array id=\"{}-normals-array\" "
             "count=\"{}\">{}</float_array>".format(
@@ -851,8 +858,7 @@ class DaeExporter:
                 S_GEOM, 3, "<source id=\"{}-tangents\">".format(meshid))
             float_values = ""
             for v in vertices:
-                float_values += " {} {} {}".format(
-                    v.tangent.x, v.tangent.y, v.tangent.z)
+                float_values = concat(float_values, strvtr(v.tangent))
             self.writel(
                 S_GEOM, 4, "<float_array id=\"{}-tangents-array\" "
                 "count=\"{}\">{}</float_array>".format(
@@ -872,8 +878,7 @@ class DaeExporter:
                 meshid))
             float_values = ""
             for v in vertices:
-                float_values += " {} {} {}".format(
-                    v.bitangent.x, v.bitangent.y, v.bitangent.z)
+                float_values = concat(float_values, strvtr(v.bitangent))
             self.writel(
                 S_GEOM, 4, "<float_array id=\"{}-bitangents-array\" "
                 "count=\"{}\">{}</float_array>".format(
@@ -896,7 +901,8 @@ class DaeExporter:
             float_values = ""
             for v in vertices:
                 try:
-                    float_values += " {} {}".format(v.uv[uvi].x, v.uv[uvi].y)
+                    #float_values = concat(float_values, strflt(v.uv[uvi].x) + " " + strflt(v.uv[uvi].y))
+                    float_values = concat(float_values, strxy(v.uv[uvi]))
                 except:
                     # TODO: Review, understand better the multi-uv-layer API
                     float_values += " 0 0 "
@@ -921,8 +927,7 @@ class DaeExporter:
             self.writel(S_GEOM, 3, "<source id=\"{}-colors\">".format(meshid))
             float_values = ""
             for v in vertices:
-                float_values += " {} {} {}".format(
-                    v.color.x, v.color.y, v.color.z)
+                float_values = concat(float_values, strvtr(v.color))
             self.writel(
                 S_GEOM, 4, "<float_array id=\"{}-colors-array\" "
                 "count=\"{}\">{}</float_array>".format(
@@ -996,14 +1001,14 @@ class DaeExporter:
                 int_values = "<p>"
                 for p in indices:
                     for i in p:
-                        int_values += " {}".format(i)
+                        int_values = concat(int_values, str(i))
                 int_values += " </p>"
                 self.writel(S_GEOM, 4, int_values)
             else:
                 for p in indices:
                     int_values = "<p>"
                     for i in p:
-                        int_values += " {}".format(i)
+                        int_values = concat(int_values, str(i))
                     int_values += " </p>"
                     self.writel(S_GEOM, 4, int_values)
 
@@ -1037,7 +1042,7 @@ class DaeExporter:
             self.writel(S_SKIN, 3, "<source id=\"{}-joints\">".format(contid))
             name_values = ""
             for v in si["bone_names"]:
-                name_values += " {}".format(v)
+                name_values = concat(name_values, str(v))
 
             self.writel(
                 S_SKIN, 4, "<Name_array id=\"{}-joints-array\" "
@@ -1057,7 +1062,7 @@ class DaeExporter:
                 contid))
             pose_values = ""
             for v in si["bone_bind_poses"]:
-                pose_values += " {}".format(strmtx(v))
+                pose_values = concat(pose_values, strmtx(v))
 
             self.writel(
                 S_SKIN, 4, "<float_array id=\"{}-bind_poses-array\" "
@@ -1081,7 +1086,7 @@ class DaeExporter:
             for v in vertices:
                 skin_weights_total += len(v.weights)
                 for w in v.weights:
-                    skin_weights += " {}".format(w)
+                    skin_weights = concat(skin_weights, strflt(w))
 
             self.writel(
                 S_SKIN, 4, "<float_array id=\"{}-skin_weights-array\" "
@@ -1119,7 +1124,7 @@ class DaeExporter:
             vs = ""
             vcount = 0
             for v in vertices:
-                vcounts += " {}".format(len(v.weights))
+                vcounts = concat(vcounts, str(len(v.weights)))
                 for b in v.bones:
                     vs += " {} {}".format(b, vcount)
                     vcount += 1
@@ -1263,8 +1268,7 @@ class DaeExporter:
 
         if (is_ctrl_bone is False):
             self.writel(
-                S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(
-                    strmtx(xform)))
+                S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(strmtx(xform)))
 
         for c in bone.children:
             self.export_armature_bone(c, armature, il, si)
@@ -1454,7 +1458,7 @@ class DaeExporter:
         self.writel(S_GEOM, 3, "<source id=\"{}-positions\">".format(splineid))
         position_values = ""
         for x in points:
-            position_values += " {}".format(x)
+            position_values = concat(position_values, str(x))
         self.writel(
             S_GEOM, 4, "<float_array id=\"{}-positions-array\" "
             "count=\"{}\">{}</float_array>".format(
@@ -1474,7 +1478,7 @@ class DaeExporter:
             S_GEOM, 3, "<source id=\"{}-intangents\">".format(splineid))
         intangent_values = ""
         for x in handles_in:
-            intangent_values += " {}".format(x)
+            intangent_values = concat(intangent_values, str(x))
         self.writel(
             S_GEOM, 4, "<float_array id=\"{}-intangents-array\" "
             "count=\"{}\">{}</float_array>".format(
@@ -1494,7 +1498,7 @@ class DaeExporter:
             splineid))
         outtangent_values = ""
         for x in handles_out:
-            outtangent_values += " {}".format(x)
+            outtangent_values = concat(outtangent_values, str(x))
         self.writel(
             S_GEOM, 4, "<float_array id=\"{}-outtangents-array\" "
             "count=\"{}\">{}</float_array>".format(
@@ -1514,7 +1518,7 @@ class DaeExporter:
             S_GEOM, 3, "<source id=\"{}-interpolations\">".format(splineid))
         interpolation_values = ""
         for x in interps:
-            interpolation_values += " {}".format(x)
+            interpolation_values = concat(interpolation_values, str(x))
         self.writel(
             S_GEOM, 4, "<Name_array id=\"{}-interpolations-array\" "
             "count=\"{}\">{}</Name_array>"
@@ -1531,7 +1535,7 @@ class DaeExporter:
         self.writel(S_GEOM, 3, "<source id=\"{}-tilts\">".format(splineid))
         tilt_values = ""
         for x in tilts:
-            tilt_values += " {}".format(x)
+            tilt_values = concat(tilt_values, str(x))
         self.writel(
             S_GEOM, 4,
             "<float_array id=\"{}-tilts-array\" count=\"{}\">{}</float_array>"
@@ -1690,11 +1694,11 @@ class DaeExporter:
         source_interps = ""
 
         for k in keys:
-            source_frames += " {}".format(k[0])
+            source_frames = concat(source_frames, strflt(k[0]))
             if (matrices):
-                source_transforms += " {}".format(strmtx(k[1]))
+                source_transforms = concat(source_transforms, strmtx(k[1]))
             else:
-                source_transforms += " {}".format(k[1])
+                source_transforms = concat(source_transforms, strflt(k[1]))
 
             source_interps += " LINEAR"
 
