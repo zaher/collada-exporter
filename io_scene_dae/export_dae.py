@@ -436,29 +436,29 @@ class DaeExporter:
 
         self.writel(S_FX, 4, "</{}>".format(shtype))
 
-        self.writel(S_FX, 4, "<extra>")
-        self.writel(S_FX, 5, "<technique profile=\"FCOLLADA\">")
-        if (normal_tex):
-            self.writel(S_FX, 6, "<bump bumptype=\"NORMALMAP\">")
-            self.writel(
-                S_FX, 7,
-                "<texture texture=\"{}\" texcoord=\"CHANNEL1\"/>".format(
-                    normal_tex))
-            self.writel(S_FX, 6, "</bump>")
+        if self.config["use_extra"]:
+            self.writel(S_FX, 4, "<extra>")
 
-        self.writel(S_FX, 5, "</technique>")
-        self.writel(S_FX, 5, "<technique profile=\"GOOGLEEARTH\">")
-        self.writel(S_FX, 6, "<double_sided>{}</double_sided>".format(
-            int(double_sided_hint)))
-        self.writel(S_FX, 5, "</technique>")
+            self.writel(S_FX, 5, "<technique profile=\"FCOLLADA\">")
 
-        """
-        if (material.use_shadeless):#material.use_shadeless is removed too
-            self.writel(S_FX, 5, "<technique profile=\"GODOT\">")
-            self.writel(S_FX, 6, "<unshaded>1</unshaded>")
+            if (normal_tex):
+                self.writel(S_FX, 6, "<bump bumptype=\"NORMALMAP\">")
+                self.writel(S_FX, 7,
+                    "<texture texture=\"{}\" texcoord=\"CHANNEL1\"/>".format(normal_tex))
+                self.writel(S_FX, 6, "</bump>")
             self.writel(S_FX, 5, "</technique>")
-        """
-        self.writel(S_FX, 4, "</extra>")
+
+            #self.writel(S_FX, 5, "<technique profile=\"GOOGLEEARTH\">")
+            #self.writel(S_FX, 6, "<double_sided>{}</double_sided>".format(int(double_sided_hint)))
+            #self.writel(S_FX, 5, "</technique>")
+
+            """
+            if (material.use_shadeless):#material.use_shadeless is removed too
+                self.writel(S_FX, 5, "<technique profile=\"GODOT\">")
+                self.writel(S_FX, 6, "<unshaded>1</unshaded>")
+                self.writel(S_FX, 5, "</technique>")
+            """
+            self.writel(S_FX, 4, "</extra>")
 
         self.writel(S_FX, 3, "</technique>")
         self.writel(S_FX, 2, "</profile_COMMON>")
@@ -1625,14 +1625,8 @@ class DaeExporter:
         if (node.type not in self.config["object_types"]):
             return False
 
-        if (self.config["use_active_layers"]):
+        if (self.config["use_active_collections"]):
             valid = True
-            """
-            for i in range(20):
-                if (node.layers[i] and self.scene.layers[i]):
-                    valid = True
-                    break
-            """
             # use collections instead of layers
             for col in node.users_collection:
                 if col.hide_viewport:
@@ -1671,18 +1665,17 @@ class DaeExporter:
     def export_asset(self):
         self.writel(S_ASSET, 0, "<asset>")
         self.writel(S_ASSET, 1, "<contributor>")
-        author = "Anonymous"#bpy.context.preferences.system.author seems to be removed from Blender 2.8
+        author = "Undefined"#bpy.context.preferences.system.author seems to be removed from Blender 2.8
         self.writel(S_ASSET, 2, "<author>{}</author>".format(author))
         self.writel(
-            S_ASSET, 2, "<authoring_tool>Collada Exporter for Blender 2.6+, "
-            "by Juan Linietsky (juan@codenix.com)</authoring_tool>")
+            S_ASSET, 2, "<authoring_tool>Better Collada Exporter for Blender 4.2+</authoring_tool>")
         self.writel(S_ASSET, 1, "</contributor>")
         self.writel(S_ASSET, 1, "<created>{}</created>".format(
             time.strftime("%Y-%m-%dT%H:%M:%SZ")))
         self.writel(S_ASSET, 1, "<modified>{}</modified>".format(
             time.strftime("%Y-%m-%dT%H:%M:%SZ")))
         self.writel(S_ASSET, 1, "<unit meter=\"1.0\" name=\"meter\"/>")
-        self.writel(S_ASSET, 1, "<up_axis>{}</up_axis>".format("Z_UP"))
+        self.writel(S_ASSET, 1, "<up_axis>{}</up_axis>".format(self.config["up_axis"]))
         self.writel(S_ASSET, 0, "</asset>")
 
     def export_animation_transform_channel(self, target, keys, matrices=True):
@@ -2047,7 +2040,7 @@ class DaeExporter:
 
         self.purge_empty_nodes()
 
-        if (self.config["use_anim"]):
+        if "ANIMATION" in self.config["object_types"]:
             self.export_animations()
 
         try:

@@ -40,8 +40,6 @@ from bpy.props import (
         EnumProperty,
 )
 
-from bpy_extras.io_utils import ExportHelper
-
 bl_info = {
     "name": "Better Collada Exporter",
     "author": "Juan Linietsky, artell, Panthavma, Harry McKenzie, and many",
@@ -76,7 +74,8 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             ("CURVE", "Curve", ""),
             ("EMPTY", "Empty", ""),
             ("CAMERA", "Camera", ""),
-            ("LAMP", "Lamp", "")
+            ("LAMP", "Lamp", ""),
+            ("ANIMATION", "Animation", "Export keyframe animation")
     )
 
     filename_ext = ".dae"
@@ -89,10 +88,10 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         options={"ENUM_FLAG"},
 
         items=object_types_list,
-            default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE"},
+            default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE", "ANIMATION"},
         )
 
-    """axis_up: EnumProperty(
+    up_axis: EnumProperty(
         name="Up Axis",
         description="The up axis of the file",
         items=(('X_UP', "X UP", "X Axis Up"),
@@ -100,7 +99,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                ('Z_UP', "Z UP", "Z Axis Up")),
         default='Z_UP',
         )
-    """
+
 
     use_generate_ids : BoolProperty(
         name="Generate IDs",
@@ -110,7 +109,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
     use_export_selected : BoolProperty(
         name="Selected Objects",
         description="Export only selected objects (and visible in active "
-                    "layers if that applies).",
+                    "collections if that applies).",
         default=True,
         )
     use_mesh_modifiers : BoolProperty(
@@ -124,39 +123,43 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                       "(otherwise animation will be applied on top of the last pose)",
         default=True,
         )
+    use_triangles : BoolProperty(
+        name="Triangulate",
+        description="Export Triangles instead of Polygons.",
+        default=True,
+        )
+    use_extra : BoolProperty(
+        name="Extra techniques",
+        description="Add extra technique elements.",
+        default=False,
+        )
     use_tangent_arrays : BoolProperty(
         name="Tangent Arrays",
         description="Export Tangent and Binormal arrays "
                     "(for normalmapping).",
         default=False,
         )
-    use_triangles : BoolProperty(
-        name="Triangulate",
-        description="Export Triangles instead of Polygons.",
-        default=True,
-        )
-
     use_copy_images : BoolProperty(
         name="Copy Images",
         description="Copy Images (create images/ subfolder)",
         default=True,
         )
-    use_active_layers : BoolProperty(
-        name="Active Layers",
-        description="Export only objects on the active layers.",
+    use_active_collections : BoolProperty(
+        name="Active Collections",
+        description="Export only objects on the active collections.",
         default=True,
         )
     use_exclude_ctrl_bones : BoolProperty(
         name="Exclude Control Bones",
-        description=("Exclude skeleton bones with names beginning with 'ctrl' "
+        description=("Exclude skeleton bones with names started with 'ctrl' "
                      "or bones which are not marked as Deform bones."),
         default=True,
         )
-    use_anim : BoolProperty(
-        name="Export Animation",
-        description="Export keyframe animation",
-        default=True,
-        )
+    #use_anim : BoolProperty(
+    #    name="Export Animation",
+    #    description="Export keyframe animation",
+    #    default=True,
+    #    )
     use_anim_action_all : BoolProperty(
         name="All Actions",
         description=("Export all actions for the first armature found "
@@ -181,6 +184,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         default=False,
         )
 
+    """
     anim_optimize_precision : FloatProperty(
         name="Precision",
         description=("Tolerence for comparing double keyframes "
@@ -189,12 +193,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         soft_min=1, soft_max=16,
         default=6.0,
         )
-
-    use_metadata : BoolProperty(
-        name="Use Metadata",
-        default=True,
-        options={"HIDDEN"},
-        )
+    """
 
     @property
     def check_extension(self):
@@ -246,8 +245,12 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
-            column.prop(self, "axis_forward")
+            column.prop(self, "use_active_collections", toggle=False)
+            column.prop(self, "up_axis")
+
+            column.label(text="Rotate:")
             column.prop(self, "axis_up")
+            column.prop(self, "axis_forward")
 
         ###### Mesh #######
 
@@ -258,8 +261,21 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=True)
 
             column.prop(self, "use_mesh_modifiers", toggle=False)
-            column.prop(self, "use_tangent_arrays", toggle=False)
+            column.prop(self, "use_exclude_armature_modifier", toggle=False)
+
             column.prop(self, "use_triangles", toggle=False)
+            column.prop(self, "use_shape_key_export", toggle=False)
+            column.prop(self, "use_tangent_arrays", toggle=False)
+
+        ###### Textures #######
+
+        header, panel = main.panel("textures")
+        header.label(text="Textures")
+
+        if panel:
+            column = panel.column(align=True)
+
+            column.prop(self, "use_copy_images", toggle=False)
 
         ###### Armature #######
 
@@ -269,9 +285,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         if panel:
             column = panel.column(align=True)
 
-            column.prop(self, "use_exclude_armature_modifier", toggle=False)
-            column.prop(self, "use_copy_images", toggle=False)
-            column.prop(self, "use_active_layers", toggle=False)
             column.prop(self, "use_exclude_ctrl_bones", toggle=False)
 
         ###### Animation #######
@@ -286,9 +299,10 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column.prop(self, "use_anim_action_all", toggle=False)
             column.prop(self, "use_anim_skip_noexp", toggle=False)
             column.prop(self, "use_anim_optimize", toggle=False)
-            row = column.row(align = True)
-            row.label(text = "Precision")
-            row.prop(self, "anim_optimize_precision", text = "")
+
+            #row = column.row(align = True)
+            #row.label(text = "Precision")
+            #row.prop(self, "anim_optimize_precision", text = "")
 
         ###### Extra #######
 
@@ -297,10 +311,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
 
         if panel:
             column = panel.column(align=True)
-
-            column.prop(self, "use_metadata", toggle=False)
-            column.prop(self, "use_shape_key_export", toggle=False)
-
+            column.prop(self, "use_extra", toggle=False)
 
 
 def menu_func(self, context):
