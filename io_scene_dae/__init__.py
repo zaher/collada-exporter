@@ -120,6 +120,12 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         default=False
         )
 
+    use_include_children : BoolProperty(
+        name="Include Children",
+        description="Include Children of exported objects",
+        default=True
+        )
+
     use_mesh_modifiers : BoolProperty(
         name="Apply Modifiers",
         description="Apply modifiers to mesh objects (on a copy!).",
@@ -253,6 +259,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
+            column.prop(self, "use_include_children", toggle=False)
             column.prop(self, "use_sort_by_name", toggle=False)
             column.prop(self, "use_active_collections", toggle=False)
             column.prop(self, "up_axis")

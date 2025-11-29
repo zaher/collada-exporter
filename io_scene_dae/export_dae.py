@@ -689,8 +689,6 @@ class DaeExporter:
         surface_indices = {}
         materials = {}
 
-        materials = {}
-
         si = None
         if armature is not None:
             si = self.skeleton_info[armature]
@@ -1612,8 +1610,17 @@ class DaeExporter:
         elif (node.type == "EMPTY"):
             self.export_empty_node(node, il)
 
-        for x in sorted(node.children, key=lambda x: x.name):
-            self.export_node(x, il)
+        if self.config["use_include_children"]:
+            if self.config["use_sort_by_name"]:
+                obj_list = sorted(node.children, key=lambda x: x.name)
+            else:
+                obj_list = list(node.children)
+
+            #obj_list.sort(key=lambda obj: obj.type != "ARMATURE") ## export ARMATURE first
+
+            for obj in obj_list:
+                if (obj in self.valid_nodes):
+                    self.export_node(obj, il)
 
         il -= 1
         self.writel(S_NODES, il, "</node>")
@@ -1652,8 +1659,8 @@ class DaeExporter:
         self.writel(S_NODES, 0, "<library_visual_scenes>")
         self.writel(S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(self.scene_name))
 
+        ## Check all objects if valid object
         for obj in self.scene.objects:
-
             if (obj in self.valid_nodes):
                 continue
 
@@ -1668,11 +1675,12 @@ class DaeExporter:
         if self.config["use_sort_by_name"]:
             obj_list = sorted(self.scene.objects, key=lambda x: x.name)
         else:
-            obj_list = self.scene.objects
+            obj_list = list(self.scene.objects)
+
+        #obj_list.sort(key=lambda obj: obj.type != "ARMATURE") ## export ARMATURE first
 
         for obj in obj_list:
-            #if (obj in self.valid_nodes and obj.parent is None):
-            if (obj in self.valid_nodes):
+            if (obj in self.valid_nodes and obj.parent is None): ## Only root parent now will export
                 self.export_node(obj, 2)
 
         self.writel(S_NODES, 1, "</visual_scene>")
