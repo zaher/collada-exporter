@@ -106,6 +106,7 @@ def strarr(arr):
         s = concat(s, strflt(x))
     return s
 
+# Thanks to @set-killer and @pouleyKetchoupp
 def apply_gamma(c):
     # gamma correction of 2.2
     gamma = 0.454545454545 # 1/2.2
@@ -473,13 +474,16 @@ class DaeExporter:
 
     def export_mesh(self, node, armature=None, skeyindex=-1, skel_source=None,
                     custom_name=None):
+
+        #if ("ARMATURE" not in self.config["object_types"]):
+        #    armature = None
+
         mesh = node.data
 
         if (node.data in self.mesh_cache):
             return self.mesh_cache[mesh]
 
-        if (skeyindex == -1 and mesh.shape_keys is not None and len(
-                mesh.shape_keys.key_blocks) and self.config["use_shape_key_export"]):
+        if ("SHAPEKEYS" in self.config["object_types"]) and (skeyindex == -1 and mesh.shape_keys is not None and len(mesh.shape_keys.key_blocks)):
             values = []
             morph_targets = []
             md = None
@@ -537,7 +541,6 @@ class DaeExporter:
 
             node.show_only_shape_key = False
             node.active_shape_key_index = 0
-
             self.writel(
                 S_MORPH, 1, "<controller id=\"{}\" name=\"\">".format(mid))
             self.writel(
@@ -609,8 +612,8 @@ class DaeExporter:
             self.writel(S_MORPH, 3, "</targets>")
             self.writel(S_MORPH, 2, "</morph>")
             self.writel(S_MORPH, 1, "</controller>")
-            if armature is not None:
 
+            if armature is not None:
                 self.armature_for_morph[node] = armature
 
             meshdata = {}
@@ -668,8 +671,6 @@ class DaeExporter:
             armature_modifier.show_viewport = armature_modifier_state
             for i,arm in enumerate(bpy.data.armatures):
                 arm.pose_position = armature_poses[i]
-
-
 
         self.temp_meshes.add(mesh)
         triangulate = self.config["use_triangles"]
@@ -1021,7 +1022,7 @@ class DaeExporter:
             self.mesh_cache[node.data] = meshdata
 
         # Export armature data (if armature exists)
-        if (armature is not None and (
+        if ("ARMATURE" in self.config["object_types"]) and (armature is not None and (
                 skel_source is not None or skeyindex == -1)):
             contid = self.new_id(armature, "controller")
 
@@ -1141,30 +1142,31 @@ class DaeExporter:
 
         armature = None
         armcount = 0
-        for n in node.modifiers:
-            if (n.type == "ARMATURE"):
-                if n.object:# make sure the armature modifier is not null
-                    armcount += 1
+        if "ARMATURE" in self.config["object_types"]:
+            for n in node.modifiers:
+                if (n.type == "ARMATURE"):
+                    if n.object:# make sure the armature modifier is not null
+                        armcount += 1
 
-        if (node.parent is not None):
-            if (node.parent.type == "ARMATURE"):
-                armature = node.parent
-                if (armcount > 1):
-                    self.operator.report(
-                        {"WARNING"}, "Object \"{}\" refers "
-                        "to more than one armature! "
-                        "This is unsupported.".format(node.name))
-                if (armcount == 0):
-                    self.operator.report(
-                        {"WARNING"}, "Object \"{}\" is child "
-                        "of an armature, but has no armature modifier.".format(
-                            node.name))
+            if (node.parent is not None):
+                if (node.parent.type == "ARMATURE"):
+                    armature = node.parent
+                    if (armcount > 1):
+                        self.operator.report(
+                            {"WARNING"}, "Object \"{}\" refers "
+                            "to more than one armature! "
+                            "This is unsupported.".format(node.name))
+                    if (armcount == 0):
+                        self.operator.report(
+                            {"WARNING"}, "Object \"{}\" is child "
+                            "of an armature, but has no armature modifier.".format(
+                                node.name))
 
-        if (armcount > 0 and not armature):
-            self.operator.report(
-                {"WARNING"},
-                "Object \"{}\" has armature modifier, but is not a child of "
-                "an armature. This is unsupported.".format(node.name))
+            if (armcount > 0 and not armature):
+                self.operator.report(
+                    {"WARNING"},
+                    "Object \"{}\" has armature modifier, but is not a child of "
+                    "an armature. This is unsupported.".format(node.name))
 
         if (node.data.shape_keys is not None):
             sk = node.data.shape_keys
@@ -1196,8 +1198,7 @@ class DaeExporter:
                     meshdata["morph_id"]))
             close_controller = True
         elif (armature is None):
-            self.writel(S_NODES, il, "<instance_geometry url=\"#{}\">".format(
-                meshdata["id"]))
+            self.writel(S_NODES, il, "<instance_geometry url=\"#{}\">".format(meshdata["id"]))
 
         if (len(meshdata["material_assign"]) > 0):
             self.writel(S_NODES, il + 1, "<bind_material>")
@@ -1213,7 +1214,7 @@ class DaeExporter:
 
         if (close_controller):
             self.writel(S_NODES, il, "</instance_controller>")
-        else:
+        elif armature is None:
             self.writel(S_NODES, il, "</instance_geometry>")
 
     def export_armature_bone(self, bone, armature, il, si):
@@ -1618,10 +1619,10 @@ class DaeExporter:
         self.writel(S_NODES, il, "</node>")
         bpy.context.view_layer.objects.active = prev_node
 
-    def is_node_valid(self, node):
-        if (node.type not in self.config["object_types"]):
-            return False
+    def is_accepted(self, node):
+        return (node.type in self.config["object_types"])
 
+    def is_selected(self, node):
         if (self.config["use_active_collections"]):
             valid = True
             # use collections instead of layers
@@ -1638,22 +1639,40 @@ class DaeExporter:
 
         return True
 
+    def is_valid(self, node):
+        if not self.is_accepted(node):
+            return False
+
+        if not self.is_selected(node):
+            return False
+
+        return True
+
     def export_scene(self):
         self.writel(S_NODES, 0, "<library_visual_scenes>")
         self.writel(S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(self.scene_name))
 
         for obj in self.scene.objects:
+
             if (obj in self.valid_nodes):
                 continue
-            if (self.is_node_valid(obj)):
+
+            if (self.is_valid(obj)):
                 n = obj
                 while (n is not None):
                     if (n not in self.valid_nodes):
-                        self.valid_nodes.append(n)
+                        if (self.is_accepted(n)):
+                            self.valid_nodes.append(n)
                     n = n.parent
 
-        for obj in sorted(self.scene.objects, key=lambda x: x.name):
-            if (obj in self.valid_nodes and obj.parent is None):
+        if self.config["use_sort_by_name"]:
+            obj_list = sorted(self.scene.objects, key=lambda x: x.name)
+        else:
+            obj_list = self.scene.objects
+
+        for obj in obj_list:
+            #if (obj in self.valid_nodes and obj.parent is None):
+            if (obj in self.valid_nodes):
                 self.export_node(obj, 2)
 
         self.writel(S_NODES, 1, "</visual_scene>")
@@ -1826,7 +1845,7 @@ class DaeExporter:
                 if (node.type == "MESH" and node.data is not None and
                     node.data.shape_keys is not None and (
                         node.data in self.mesh_cache) and len(
-                            node.data.shape_keys.key_blocks) and self.config["use_shape_key_export"]):
+                            node.data.shape_keys.key_blocks) and ("SHAPEKEYS" in self.config["object_types"])):
                     target = self.mesh_cache[node.data]["morph_id"]
                     for i in range(len(node.data.shape_keys.key_blocks)):
 
@@ -2030,6 +2049,7 @@ class DaeExporter:
             del self.sections[S_SKIN]
 
         self.writel(S_CONT, 0, "</library_controllers>")
+
         self.writel(S_CAMS, 0, "</library_cameras>")
         self.writel(S_LAMPS, 0, "</library_lights>")
         self.writel(S_IMGS, 0, "</library_images>")

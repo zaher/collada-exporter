@@ -75,6 +75,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             ("EMPTY", "Empty", ""),
             ("CAMERA", "Camera", ""),
             ("LAMP", "Lamp", ""),
+            ("SHAPEKEYS", "Shape Keys", "Export shape keys for selected objects"),
             ("ANIMATION", "Animation", "Export keyframe animation")
     )
 
@@ -88,7 +89,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         options={"ENUM_FLAG"},
 
         items=object_types_list,
-            default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE", "ANIMATION"},
+            default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE", "ANIMATION", "SHAPEKEYS"},
         )
 
     up_axis: EnumProperty(
@@ -100,18 +101,25 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         default='Z_UP',
         )
 
-
     use_generate_ids : BoolProperty(
         name="Generate IDs",
         description="Generate object, bones and nodes id to new id, do not use Blender names",
         default=False,
         )
+
     use_export_selected : BoolProperty(
         name="Selected Objects",
         description="Export only selected objects (and visible in active "
                     "collections if that applies).",
         default=True,
         )
+
+    use_sort_by_name : BoolProperty(
+        name="Sort By Names",
+        description="Export objects sorted by name",
+        default=False
+        )
+
     use_mesh_modifiers : BoolProperty(
         name="Apply Modifiers",
         description="Apply modifiers to mesh objects (on a copy!).",
@@ -184,12 +192,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         default=False,
         )
 
-    use_shape_key_export : BoolProperty(
-        name="Shape Keys",
-        description="Export shape keys for selected objects.",
-        default=False,
-        )
-
     """
     anim_optimize_precision : FloatProperty(
         name="Precision",
@@ -251,6 +253,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
+            column.prop(self, "use_sort_by_name", toggle=False)
             column.prop(self, "use_active_collections", toggle=False)
             column.prop(self, "up_axis")
 
@@ -270,7 +273,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column.prop(self, "use_exclude_armature_modifier", toggle=False)
 
             column.prop(self, "use_triangles", toggle=False)
-            column.prop(self, "use_shape_key_export", toggle=False)
             column.prop(self, "use_tangent_arrays", toggle=False)
 
         ###### Textures #######
@@ -302,7 +304,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         if panel:
             column = panel.column(align=True)
 
-            column.prop(self, "use_anim", toggle=False)
             column.prop(self, "use_anim_action_all", toggle=False)
             column.prop(self, "use_anim_skip_noexp", toggle=False)
             column.prop(self, "use_anim_optimize", toggle=False)
