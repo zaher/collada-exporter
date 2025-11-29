@@ -43,6 +43,9 @@ The global_matrix is now applied to:
 
     https://github.com/de-senk/Pimp/blob/86ac20a2274c7c9bbe06e2d323e40339055cac38/blender_script/export_static_mesh.py#L63
 
+    Adding gamma correction option
+    https://github.com/pouleyKetchoupp/collada-exporter/commit/baf3024c7be4b7370490c47b9ac4abca62e0dd37
+
 """
 
 import os
@@ -77,16 +80,12 @@ ROUND_FLOAT = 6
 def concat(s1, s2):
     return (s1 + ' ' + s2) if s1 else s2
 
-def snap_tup(tup):
-    ret = ()
-    for x in tup:
-        ret += (x - math.fmod(x, 0.0001), )
-
-    return tup
-
-def strflt(x):
+def strflt(x, rount_it = True):
     #return '{0:.6f}'.format(x)
-    return str(round(x, ROUND_FLOAT))
+    if rount_it:
+        return str(round(x, ROUND_FLOAT))
+    else:
+        return str(x)
 
 def strvtr(v):
     return strflt(v.x) + " " +strflt(v.y) + " " + strflt(v.z)
@@ -101,26 +100,26 @@ def strmtx(mtx):
             s = concat(s, strflt(mtx[x][y]))
     return s
 
-def numarr(a, mult=1.0):
-    s = ""
-    for x in a:
-        s = concat(s, strflt(x * mult))
-    return s
-
-
-def numarr_alpha(a, mult=1.0):
-    s = ""
-    for x in a:
-        s = concat(s, strflt(x * mult))
-    if len(a) == 3:
-        s += "1.0"
-    return s
-
-
 def strarr(arr):
     s = ""
     for x in arr:
         s = concat(s, strflt(x))
+    return s
+
+def apply_gamma(c):
+    # gamma correction of 2.2
+    gamma = 0.454545454545 # 1/2.2
+    return pow(c, gamma)
+
+def str_color(vector, mult=1.0, correct=False):
+    s = ""
+    if correct:
+        s = " ".join([strflt(apply_gamma(x * mult)) for x in vector])
+    else:
+        s = " ".join([strflt(x * mult) for x in vector])
+
+    if len(vector) == 3:
+        s += " 1.0"
     return s
 
 class DaeExporter:
@@ -383,12 +382,12 @@ class DaeExporter:
         else:
             # TODO: More accurate coloring, if possible
             self.writel(S_FX, 6, "<color>{}</color>".format(
-                numarr_alpha(material.diffuse_color, 1.0)))#material.emit is removed in Blender 2.8
+                str_color(material.diffuse_color, correct = self.gamma_correction))) #material.emit is removed in Blender 2.8
         self.writel(S_FX, 5, "</emission>")
 
         self.writel(S_FX, 5, "<ambient>")
         self.writel(S_FX, 6, "<color>{}</color>".format(
-            numarr_alpha((0.0, 0.0, 0.0), 1.0)))# self.scene.world.ambient_color and material.ambient are removed too
+            str_color((0.0, 0.0, 0.0))))# self.scene.world.ambient_color and material.ambient are removed too
         self.writel(S_FX, 5, "</ambient>")
 
         self.writel(S_FX, 5, "<diffuse>")
@@ -397,8 +396,7 @@ class DaeExporter:
                 S_FX, 6, "<texture texture=\"{}\" texcoord=\"CHANNEL1\"/>"
                 .format(diffuse_tex))
         else:
-            self.writel(S_FX, 6, "<color>{}</color>".format(numarr_alpha(
-                material.diffuse_color, 0.8)))# material.diffuse_intensity is removed too
+            self.writel(S_FX, 6, "<color>{}</color>".format(str_color(material.diffuse_color, 0.8, correct = self.gamma_correction)))# material.diffuse_intensity is removed too
         self.writel(S_FX, 5, "</diffuse>")
 
         self.writel(S_FX, 5, "<specular>")
@@ -408,8 +406,7 @@ class DaeExporter:
                 "<texture texture=\"{}\" texcoord=\"CHANNEL1\"/>".format(
                     specular_tex))
         else:
-            self.writel(S_FX, 6, "<color>{}</color>".format(numarr_alpha(
-                material.specular_color, material.specular_intensity)))
+            self.writel(S_FX, 6, "<color>{}</color>".format(str_color(material.specular_color, material.specular_intensity, correct = self.gamma_correction)))
         self.writel(S_FX, 5, "</specular>")
 
         self.writel(S_FX, 5, "<shininess>")
@@ -419,7 +416,7 @@ class DaeExporter:
 
         self.writel(S_FX, 5, "<reflective>")
         self.writel(S_FX, 6, "<color>{}</color>".format(
-            numarr_alpha((0.5, 0.5, 0.5))))# material.mirror_color is removed too
+            str_color((0.5, 0.5, 0.5))))# material.mirror_color is removed too
         self.writel(S_FX, 5, "</reflective>")
 
         """
@@ -927,7 +924,7 @@ class DaeExporter:
             self.writel(S_GEOM, 3, "<source id=\"{}-colors\">".format(meshid))
             float_values = ""
             for v in vertices:
-                float_values = concat(float_values, strvtr(v.color))
+                float_values = concat(float_values, str_color(v.color, correct = self.gamma_correction))
             self.writel(
                 S_GEOM, 4, "<float_array id=\"{}-colors-array\" "
                 "count=\"{}\">{}</float_array>".format(
@@ -1360,7 +1357,7 @@ class DaeExporter:
         if (light.type == "POINT"):
             self.writel(S_LAMPS, 4, "<point>")
             self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
+                str_color(light.color, correct = self.gamma_correction)))
             # Convert to linear attenuation
             att_by_distance = 2.0 / light.distance
             self.writel(
@@ -1375,7 +1372,7 @@ class DaeExporter:
         elif (light.type == "SPOT"):
             self.writel(S_LAMPS, 4, "<spot>")
             self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
+                str_color(light.color, correct = self.gamma_correction)))
             # Convert to linear attenuation
             att_by_distance = 2.0 / light.distance
             self.writel(
@@ -1390,7 +1387,7 @@ class DaeExporter:
         else:  # Write a sun lamp for everything else (not supported)
             self.writel(S_LAMPS, 4, "<directional>")
             self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
+                str_color(light.color, correct = self.gamma_correction)))
             self.writel(S_LAMPS, 4, "</directional>")
 
         self.writel(S_LAMPS, 3, "</technique_common>")
@@ -1977,6 +1974,7 @@ class DaeExporter:
                 start = x.frame_range[0] * framelen
                 end = x.frame_range[1] * framelen
                 self.writel(
+                    #S_ANIM_CLIPS, 1, "<animation_clip id=\"{}\" " #TODO Maybe: https://github.com/OpenMW/collada-exporter/commit/0dc6156862b735e0baee332f3a3a650c9020c723
                     S_ANIM_CLIPS, 1, "<animation_clip name=\"{}\" "
                     "start=\"{}\" end=\"{}\">".format(x.name, start, end))
                 for z in tcn:
@@ -2073,7 +2071,8 @@ class DaeExporter:
                  "path", "mesh_cache", "curve_cache", "material_cache",
                  "image_cache", "skeleton_info", "config", "valid_nodes",
                  "armature_for_morph", "used_bones", "wrongvtx_report",
-                 "skeletons", "action_constraints", "temp_meshes", "global_matrix")
+                 "skeletons", "action_constraints", "temp_meshes",
+                 "global_matrix", "gamma_correction")
 
     def __init__(self, path, kwargs, operator):
         self.operator = operator
@@ -2095,6 +2094,7 @@ class DaeExporter:
         self.wrongvtx_report = False
         self.skeletons = []
         self.action_constraints = []
+        self.gamma_correction = self.config["use_gamma_correction"]
         # Store global_matrix for axis conversion
         self.global_matrix = kwargs.get('global_matrix', Matrix.Identity(4))
 

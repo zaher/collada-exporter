@@ -139,6 +139,12 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                     "(for normalmapping).",
         default=False,
         )
+
+    use_gamma_correction : BoolProperty(
+        name="Gamma Correction",
+        description="Gamma Correction for colors and lamp",
+        default=True,
+        )
     use_copy_images : BoolProperty(
         name="Copy Images",
         description="Copy Images (create images/ subfolder)",
@@ -276,6 +282,7 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=True)
 
             column.prop(self, "use_copy_images", toggle=False)
+            column.prop(self, "use_gamma_correction", toggle=False)
 
         ###### Armature #######
 
