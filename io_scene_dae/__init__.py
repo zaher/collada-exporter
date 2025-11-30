@@ -91,7 +91,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         items=object_types_list,
             default={"EMPTY", "CAMERA", "LAMP", "ARMATURE", "MESH", "CURVE", "ANIMATION", "SHAPEKEYS"},
         )
-
     up_axis: EnumProperty(
         name="Up Axis",
         description="The up axis of the file",
@@ -100,7 +99,6 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                ('Z_UP', "Z UP", "Z Axis Up")),
         default='Z_UP',
         )
-
     use_generate_ids : BoolProperty(
         name="Generate IDs",
         description="Generate object, bones and nodes id to new id, do not use Blender names",
@@ -112,6 +110,12 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         description="Export only selected objects (and visible in active "
                     "collections if that applies).",
         default=True,
+        )
+
+    use_rotate : BoolProperty(
+        name="Rotate",
+        description="Rotate using Up, Forward axis",
+        default=False
         )
 
     use_sort_by_name : BoolProperty(
@@ -153,11 +157,10 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
                     "(for normalmapping).",
         default=False,
         )
-
     use_gamma_correction : BoolProperty(
         name="Gamma Correction",
         description="Gamma Correction for colors and lamp",
-        default=True,
+        default=False,
         )
     use_copy_images : BoolProperty(
         name="Copy Images",
@@ -259,14 +262,24 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
             column = panel.column(align=False)
             column.prop(self, "use_generate_ids", toggle=False)
             column.prop(self, "use_export_selected", toggle=False)
+            column.prop(self, "use_active_collections", toggle=False)
             column.prop(self, "use_include_children", toggle=False)
             column.prop(self, "use_sort_by_name", toggle=False)
-            column.prop(self, "use_active_collections", toggle=False)
-            column.prop(self, "up_axis")
 
-            column.label(text="Rotate:")
-            column.prop(self, "axis_up")
-            column.prop(self, "axis_forward")
+        ###### Coordinate #######
+
+        header, panel = main.panel("coordinate")
+        header.label(text="Coordinate")
+
+        if panel:
+            column = panel.column(align=True)
+            column.prop(self, "up_axis")
+            #column.label(text="Rotate:")
+            column.prop(self, "use_rotate")
+            box = column.box()
+            box.enabled = self.use_rotate
+            box.prop(self, "axis_up")
+            box.prop(self, "axis_forward")
 
         ###### Mesh #######
 
@@ -311,9 +324,9 @@ class CE_OT_export_dae(bpy.types.Operator, ExportHelper):
         if panel:
             column = panel.column(align=True)
 
+            column.prop(self, "use_anim_optimize", toggle=False)
             column.prop(self, "use_anim_action_all", toggle=False)
             column.prop(self, "use_anim_skip_noexp", toggle=False)
-            column.prop(self, "use_anim_optimize", toggle=False)
 
             #row = column.row(align = True)
             #row.label(text = "Precision")
