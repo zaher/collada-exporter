@@ -17,6 +17,15 @@
 
 # Script copyright (C) Juan Linietsky
 # concat Info: juan@godotengine.org
+#
+#
+#   Based on:
+#
+#   https://github.com/godotengine/collada-exporter
+#
+#   https://github.com/hkunz/collada-exporter
+#
+# #####
 
 """
 This script is an exporter to the Khronos Collada file format.
@@ -191,12 +200,14 @@ class DaeExporter:
             self.weights = []
 
     def writel(self, section, indent, text):
+
         if (section not in self.sections):
             self.sections[section] = []
         line = "{}{}".format((indent * 2) * " ", text)
         self.sections[section].append(line)
 
     def purge_empty_nodes(self):
+
         sections = {}
         for k, v in self.sections.items():
             if not (len(v) == 2 and v[0][1:] == v[1][2:]):
@@ -204,6 +215,7 @@ class DaeExporter:
         self.sections = sections
 
     def export_image(self, image):
+
         img_id = self.image_cache.get(image)
         if img_id:
             return img_id
@@ -211,7 +223,7 @@ class DaeExporter:
         imgpath = image.filepath
         if imgpath.startswith("//"):
             imgpath = bpy.path.abspath(imgpath)
-            print("exporting image path", imgpath)
+            print("Exporting image path", imgpath)
         if (self.config["use_copy_images"]):
             basedir = os.path.join(os.path.dirname(self.path), "images")
             if (not os.path.isdir(basedir)):
@@ -242,7 +254,6 @@ class DaeExporter:
                     "images", os.path.basename(image.filepath)).replace("\\", "/")
                 image.filepath = img_tmp_path
 
-
         else:
             try:
                 imgpath = os.path.relpath(
@@ -263,6 +274,7 @@ class DaeExporter:
         return imgid
 
     def export_material(self, material, double_sided_hint=True):
+
         material_id = self.material_cache.get(material)
         if material_id:
             return material_id
@@ -509,9 +521,7 @@ class DaeExporter:
                     armature_modifier_state = armature_modifier.show_viewport
                     armature_modifier.show_viewport = False
 
-                print(node)
                 v = node.to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
-                print(v)
                 # Warning, Blender 2.8 does not support anymore the "RENDER" argument to apply modifier
                 # with render state only...
 
@@ -619,7 +629,7 @@ class DaeExporter:
         if(self.config["use_exclude_armature_modifier"]):
             armature_modifiers = [i for i in node.modifiers if i.type == "ARMATURE"]
             if len(armature_modifiers) > 0:
-                print(node.name)
+                #print(node.name)
                 armature_modifier = armature_modifiers[0]#node.modifiers.get("Armature")
 
         # Set armature in rest pose
@@ -1487,11 +1497,17 @@ class DaeExporter:
             curveid))
         self.writel(S_NODES, il, "</instance_geometry>")
 
+    """
+    ##### is_accepted #####
+    """
     def is_accepted(self, node):
         return (node.type in self.config["object_types"])
 
+    """
+    ##### is_selected #####
+    """
     def is_selected(self, node):
-        if (self.config["use_active_collections"]):
+        if (self.use_active_collections):
             valid = True
             # use collections instead of layers
             for col in node.users_collection:
@@ -1502,11 +1518,14 @@ class DaeExporter:
             if (not valid):
                 return False
 
-        if (self.config["use_export_selected"] and not node.select_get()):
+        if (self.use_export_selected and not node.select_get()):
             return False
 
         return True
 
+    """
+    ##### is_valid #####
+    """
     def is_valid(self, node):
         if not self.is_accepted(node):
             return False
@@ -1516,92 +1535,79 @@ class DaeExporter:
 
         return True
 
-    def export_node(self, node, il):
-        #if (node not in self.valid_nodes):
-        #    return
+    """
+    ##### export_node #####
+    """
+    def export_node(self, node, il, force = False):
 
-        prev_node = bpy.context.view_layer.objects.active
-        bpy.context.view_layer.objects.active = node
+        is_selected = force or self.is_selected(node)
+        accepted = is_selected and self.is_accepted(node)
+        if accepted:
+            prev_node = bpy.context.view_layer.objects.active
+            bpy.context.view_layer.objects.active = node
 
-        self.writel(S_NODES, il, "<node id=\"{}\" name=\"{}\" type=\"NODE\">".format(self.validate_id(node.name), node.name))
-        il += 1
+            self.writel(S_NODES, il, "<node id=\"{}\" name=\"{}\" type=\"NODE\">".format(self.validate_id(node.name), node.name))
+            il += 1
 
-        # Apply global matrix to node transformation
-        if self.config["use_rotate"]:
-            transformed_matrix = self.global_matrix @ node.matrix_local
-        else:
-            transformed_matrix = node.matrix_local
+            # Apply global matrix to node transformation
+            if self.config["use_rotate"]:
+                transformed_matrix = self.global_matrix @ node.matrix_local
+            else:
+                transformed_matrix = node.matrix_local
 
-        self.writel(S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(strmtx(transformed_matrix)))
+            self.writel(S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(strmtx(transformed_matrix)))
+            print("Exporting: " + node.name + ": " + node.type)
+            if (node.type == "MESH"):
+                self.export_mesh_node(node, il)
+            elif (node.type == "CURVE"):
+                self.export_curve_node(node, il)
+            elif (node.type == "ARMATURE"):
+                self.export_armature_node(node, il)
+            elif (node.type == "CAMERA"):
+                self.export_camera_node(node, il)
+            elif (node.type == "LAMP"):
+                self.export_lamp_node(node, il)
+            elif (node.type == "EMPTY"):
+                self.export_empty_node(node, il)
 
-        if (node.type == "MESH"):
-            self.export_mesh_node(node, il)
-        elif (node.type == "CURVE"):
-            self.export_curve_node(node, il)
-        elif (node.type == "ARMATURE"):
-            self.export_armature_node(node, il)
-        elif (node.type == "CAMERA"):
-            self.export_camera_node(node, il)
-        elif (node.type == "LAMP"):
-            self.export_lamp_node(node, il)
-        elif (node.type == "EMPTY"):
-            self.export_empty_node(node, il)
+        self.export_nodes(node.children, il, force = (is_selected and self.use_include_children))
 
-        if self.config["use_include_children"]:
-            self.export_nodes(node.children, il)
-
-        il -= 1
-        self.writel(S_NODES, il, "</node>")
-        bpy.context.view_layer.objects.active = prev_node
-
-    def export_nodes(self, objects, il):
+        if accepted:
+            il -= 1
+            self.writel(S_NODES, il, "</node>")
+            bpy.context.view_layer.objects.active = prev_node
+    """
+    ##### export_nodes #####
+    """
+    def export_nodes(self, objects, il, force = False):
         if self.config["use_sort_by_name"]:
             obj_list = sorted(objects, key=lambda x: x.name)
         else:
             obj_list = list(objects)
 
         ## Force ARMATURE to be first, it is used by Mesh in `skeleton_info` list
-        obj_list.sort(key=lambda obj: obj.type != "ARMATURE") ## export ARMATURE first
+        obj_list.sort(key=lambda obj: obj.type != "ARMATURE")
 
         for obj in obj_list:
-            #if (obj in self.valid_nodes):
-            if self.is_accepted(obj):
-                self.export_node(obj, il)
+            self.export_node(obj, il, force)
 
+    """
+    ##### export_scene #####
+    """
     def export_scene(self):
         self.writel(S_NODES, 0, "<library_visual_scenes>")
         self.writel(S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(self.scene_name))
 
-        ## Check all objects if valid object
-        for obj in self.scene.objects:
-            if (obj in self.valid_nodes):
-                continue
+        obj_list = [obj for obj in self.scene.objects if obj.parent is None]
 
-            if (self.is_valid(obj)):
-                """ ##Include all parent without check validation on it
-                n = obj
-                while (n is not None):
-                    if (n not in self.valid_nodes):
-                        if (self.is_accepted(n)): ##Maybe
-                            self.valid_nodes.append(n)
-                    n = n.parent
-                """ ## Else
-                self.valid_nodes.append(obj)
-
-        if self.config["use_sort_by_name"]:
-            obj_list = sorted(self.scene.objects, key=lambda x: x.name)
-        else:
-            obj_list = list(self.scene.objects)
-
-        obj_list.sort(key=lambda obj: obj.type != "ARMATURE") ## export ARMATURE first
-
-        for obj in obj_list:
-            if (obj in self.valid_nodes and obj.parent is None): ## Only root parent now will export
-                self.export_node(obj, 2)
+        self.export_nodes(obj_list, 2)
 
         self.writel(S_NODES, 1, "</visual_scene>")
         self.writel(S_NODES, 0, "</library_visual_scenes>")
 
+    """
+    ##### export_asset #####
+    """
     def export_asset(self):
         self.writel(S_ASSET, 0, "<asset>")
         self.writel(S_ASSET, 1, "<contributor>")
@@ -1737,7 +1743,7 @@ class DaeExporter:
             key = t * frame_len - frame_sub
 
             for node in self.scene.objects:
-                if (node not in self.valid_nodes):
+                if self.is_accepted(node): ## Maybe is_valid
                     continue
                 if (allowed is not None and (node not in allowed)):
                     if (node.type == "MESH" and node.data is not None and
@@ -1991,16 +1997,17 @@ class DaeExporter:
 
     __slots__ = ("operator", "scene", "last_id", "scene_name", "sections",
                  "path", "mesh_cache", "curve_cache", "material_cache",
-                 "image_cache", "skeleton_info", "config", "valid_nodes",
+                 "image_cache", "skeleton_info", "config",
                  "armature_for_morph", "used_bones", "wrongvtx_report",
                  "skeletons", "action_constraints", "temp_meshes",
-                 "global_matrix", "gamma_correction")
+                 "global_matrix", "gamma_correction",
+                 "use_include_children", "use_export_selected", "use_active_collections")
 
     def __init__(self, path, kwargs, operator):
         self.operator = operator
         self.config = kwargs
-        self.scene = bpy.context.scene
         self.last_id = 0
+        self.scene = bpy.context.scene
         self.scene_name = self.new_id(self.scene, "scene", no_suffex = True)
         self.sections = {}
         self.path = path
@@ -2010,13 +2017,15 @@ class DaeExporter:
         self.material_cache = {}
         self.image_cache = {}
         self.skeleton_info = {}
-        self.valid_nodes = []
         self.armature_for_morph = {}
         self.used_bones = []
         self.wrongvtx_report = False
         self.skeletons = []
         self.action_constraints = []
         self.gamma_correction = self.config["use_gamma_correction"]
+        self.use_include_children = self.config["use_include_children"]
+        self.use_export_selected = self.config["use_export_selected"]
+        self.use_active_collections = self.config["use_active_collections"]
         # Store global_matrix for axis conversion
         self.global_matrix = kwargs.get('global_matrix', Matrix.Identity(4))
 
